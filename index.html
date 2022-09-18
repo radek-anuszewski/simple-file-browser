@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+		<meta charset="UTF-8">
+		<title>File browser</title>
+		<script type="module">
+
+    let data = {};
+    const readElements = async (handle, elData, level, maxLevel = 5) => {
+      if (level >= maxLevel) {
+        return;
+      }
+      for await (const [elName, elHandle] of handle.entries()) {
+        if (elHandle.kind === 'directory' || elHandle.name.endsWith('.txt')) {
+          elData[elName] = {
+            name: elName,
+            kind: elHandle.kind,
+            handle: elHandle,
+            ...(elHandle.kind === 'directory' ? {data: {}} : {}),
+            ...(elHandle.kind === 'file' ? {file: await elHandle.getFile()} : {}),
+          }
+
+          if (elHandle.kind === 'directory') {
+            await readElements(elHandle, elData[elName].data, level + 1);
+          }
+        }
+      }
+    }
+
+    const drawElements = (elData, indentText = '') => {
+      for (const key in elData) {
+								if (elData.hasOwnProperty(key)) {
+          const el = elData[key];
+          const directory = el.kind === 'directory';
+          const div = document.createElement('div');
+          div.innerHTML = `${indentText}${directory ? `<strong>${el.name}</strong>` : el.name}`;
+          div.style.padding = '5px 0';
+          if (el.kind === 'file') {
+            div.style.cursor = 'pointer';
+            div.onclick = async () => document.querySelector('#fileText').innerHTML = await el.file.text();
+          }
+          document.querySelector('#elements').appendChild(div);
+          if (directory) {
+            drawElements(el.data, indentText + '--');
+										}
+								}
+      }
+    };
+
+    document.querySelector('#selectMain').addEventListener('click', async () => {
+      data = {};
+      const mainDirectoryHandle = await window.showDirectoryPicker();
+      await readElements(mainDirectoryHandle, data, 0);
+      drawElements(data);
+    });
+		</script>
+</head>
+<body>
+<main>
+		<h1>Browse files in web browser</h1>
+		<button id="selectMain">Select main directory</button>
+		<article>
+				<h2>Elements in directory</h2>
+				<section id="elements">
+
+				</section>
+				<h2>Clicked file content</h2>
+				<label for="fileText">File content</label>
+				<textarea id="fileText" readonly></textarea>
+		</article>
+</main>
+</body>
+</html>
